@@ -12,6 +12,7 @@ import tempfile
 import datetime as dt
 import webbrowser
 from urllib.parse import urljoin
+import re
 
 import requests
 import html5lib
@@ -121,11 +122,32 @@ def main():
     for spu in ship_page_urls:
         print(f"Attempting to fetching model for {spu.split('/')[-1]}")
 
-        open_url_in_browser_locally(spu)
+        # Open page for deving
+        driver = webdriver.Chrome()
+        driver.implicitly_wait(30)
+        driver.get(spu)
 
-        print()
         page = requests.get(spu)
         soup = BeautifulSoup(page.content, "html5lib")
+
+        # Search through scripts for reference to *.CTM file
+        scripts = soup.find_all("script", {'type': 'text/javascript'})
+        for script in scripts:
+            if len(script) > 0:
+                content = ''.join(script.contents)
+                if '.ctm' in content or 'model_3d' in content:
+                    print(f'Located ship model reference in content: {content}')
+
+                    # Use regex matching to extract model path string
+                    model_string_format = r'model_3d: [\S]+'
+                    pattern = re.compile(model_string_format)
+                    print(pattern.findall(content))
+
+                    model_path = ""
+                    print(f"Found ship model path! {model_path}")
+                    break
+
+        print()
 
 
     raise NotImplemented()
