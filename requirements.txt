@@ -1,0 +1,9 @@
+# upgrade pip
+# - wheel
+# - setuptools
+
+numpy
+scipy
+beautifulsoup4
+bpy
+pyqt5
