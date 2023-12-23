@@ -18,8 +18,14 @@ import requests
 import html5lib
 from bs4 import BeautifulSoup
 from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 import PyQt5
 import bpy
+
+# Selenium chrome options
+CHROME_PATH = '/usr/bin/google-chrome'
+CHROMEDRIVER_PATH = '/usr/bin/chromedriver'
+WINDOW_SIZE = "1920,1080"
 
 
 def scroller(url, scroll_pause_time_sec=1.0):
@@ -31,7 +37,12 @@ def scroller(url, scroll_pause_time_sec=1.0):
     :return: beautifulsoup soup object
     """
 
-    driver = webdriver.Chrome()
+    # Configure chrome to be headless
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--window-size=%s" % "1920,1080")
+
+    driver = webdriver.Chrome(options=chrome_options)
     driver.implicitly_wait(30)
 
     try:
@@ -148,7 +159,6 @@ def main():
                     break
 
         print()
-
 
     raise NotImplemented()
 
