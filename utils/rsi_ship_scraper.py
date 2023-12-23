@@ -15,7 +15,6 @@ from urllib.parse import urljoin
 import re
 
 import requests
-import html5lib
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -74,14 +73,18 @@ def scroller(url, scroll_pause_time_sec=1.0):
 
 def open_url_in_browser_locally(url):
     """
-    Opens page in a web browser using selenium's web driver.
+    Opens page in a web browser using selenium's web driver (for development and debugging purposes).
 
     :param url: string containing web URL
     :return:
     """
+
     driver = webdriver.Chrome()
     driver.implicitly_wait(30)
     driver.get(url)
+
+    raise NotImplementedError("!!! this doesn't actually work within a function(?), "
+                              "is only here to be copied and pasted in line within script.")
 
 
 def open_page_in_browser_locally(page):
@@ -100,11 +103,59 @@ def open_page_in_browser_locally(page):
         print()
 
 
+def get_ship_3d_model_path_from_page(url):
+    """
+    Searches through ship page HTML content to find occurences of javascript content that should contain a reference
+        to the path that holoviewer uses to dynamically load the 3D model file for the ship in context.
+
+    :param url: Ship page to search for 3D model file reference in.
+    :return: string containg the path for the ship model file
+    """
+
+    page = requests.get(url)
+    soup = BeautifulSoup(page.content, "html5lib")
+
+    # Search through scripts for reference to *.CTM file
+    model_path = ''
+    scripts = soup.find_all("script", {'type': 'text/javascript'})
+    for script in scripts:
+        if len(script) > 0:
+            content = ''.join(script.contents)
+            if '.ctm' in content or 'model_3d' in content:
+                # print(f'Located ship model reference in content: {content}')
+
+                # Use regex matching to extract model path string
+                model_string_format = 'model_3d: [\S]+'
+                pattern = re.compile(model_string_format)
+                matches = pattern.findall(content)
+
+                if len(matches) == 1:
+                    model_path = ''.join(matches[0].split(":")[1:]).strip().strip('\'')
+                elif len(matches) == 0:
+                    RuntimeError("Failed to find scripts content in HTML source when attempting to "
+                                 "locate 3D model file paths.")
+                else:  # len(matches) > 0
+                    RuntimeError(
+                        f"Found multiple 3D model file references in HTML source: {matches}.")
+
+                break
+        else:
+            RuntimeError(
+                "Failed to find scripts content in HTML source when attempting to locate 3D model file paths.")
+
+    # Sometimes URL is full, but sometimes it is not
+    if "https://" not in model_path:
+        full_model_path = urljoin('https://robertsspaceindustries.com', model_path)
+    else:
+        full_model_path = model_path
+
+    return full_model_path
+
+
 def main():
 
     # Start scraping
     base_url = "https://robertsspaceindustries.com/"
-    # pledge_ships_url = os.path.join(base_url, 'pledge/ships/')
     pledge_ships_url = urljoin(base_url, 'pledge/ships/')
 
     scroll = True
@@ -121,7 +172,6 @@ def main():
 
     for si in ship_items:
         path = si.find(class_='trans-02s').find(class_='trans-02s')["href"]
-        # ship_page_url = base_url + '/' + str(path)
         ship_page_url = urljoin(base_url, path)
         ship_page_urls.append(ship_page_url)
 
@@ -130,35 +180,20 @@ def main():
         print(f"{spu}")
 
     # Go to each page and find the path to the CTM model file in the holoviewer
-    for spu in ship_page_urls:
-        print(f"Attempting to fetching model for {spu.split('/')[-1]}")
+    with tempfile.TemporaryDirectory(dir=r'C:\Users\kyle\Downloads') as tmp_dir:
+        for spu in ship_page_urls:
+            ship_name = '_'.join(spu.split('/')[-2:])
+            print(f"Attempting to find 3D model download URL for {ship_name}")
+            ship_model_url = get_ship_3d_model_path_from_page(spu)
+            print(f"Found ship model path for {ship_name}: {ship_model_url}")
 
-        # Open page for deving
-        driver = webdriver.Chrome()
-        driver.implicitly_wait(30)
-        driver.get(spu)
+            # Download file from path
+            print(f"Attempting to download model file for {ship_name} from {ship_model_url}")
+            r = requests.get(ship_model_url)
+            with open(os.path.join(tmp_dir, f"{ship_name}.ctm"), 'wb') as f:
+                f.write(r.content)
 
-        page = requests.get(spu)
-        soup = BeautifulSoup(page.content, "html5lib")
-
-        # Search through scripts for reference to *.CTM file
-        scripts = soup.find_all("script", {'type': 'text/javascript'})
-        for script in scripts:
-            if len(script) > 0:
-                content = ''.join(script.contents)
-                if '.ctm' in content or 'model_3d' in content:
-                    print(f'Located ship model reference in content: {content}')
-
-                    # Use regex matching to extract model path string
-                    model_string_format = r'model_3d: [\S]+'
-                    pattern = re.compile(model_string_format)
-                    print(pattern.findall(content))
-
-                    model_path = ""
-                    print(f"Found ship model path! {model_path}")
-                    break
-
-        print()
+            print()
 
     raise NotImplemented()
 
