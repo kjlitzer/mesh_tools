@@ -7,6 +7,7 @@ https://www.reddit.com/r/starcitizen/comments/ab0gja/how_to_download_3d_print_ho
 
 # TODO: get a requirements.txt going
 import os
+import shutil
 import time
 import tempfile
 import datetime as dt
@@ -19,6 +20,7 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import PyQt5
+import pymeshlab
 import bpy
 
 # Selenium chrome options
@@ -154,16 +156,14 @@ def get_ship_3d_model_path_from_page(url):
 
 def main():
 
+    outdir = r"Z:\User Data\3d_printing\asset_extraction\SC\holoviewer"
+
     # Start scraping
     base_url = "https://robertsspaceindustries.com/"
     pledge_ships_url = urljoin(base_url, 'pledge/ships/')
 
-    scroll = True
-    if not scroll:
-        page = requests.get(pledge_ships_url)
-        soup = BeautifulSoup(page.content, "html5lib")
-    else:
-        soup = scroller(pledge_ships_url, scroll_pause_time_sec=1.0)
+    # Load page, then scroll to get all dynamic content
+    soup = scroller(pledge_ships_url, scroll_pause_time_sec=1.0)
 
     # Find ship links on this page, then iterate over them to get and extract data from each page
     search_results = soup.find(id='search-results')
@@ -184,23 +184,28 @@ def main():
         for spu in ship_page_urls:
             ship_name = '_'.join(spu.split('/')[-2:])
             print(f"Attempting to find 3D model download URL for {ship_name}")
+
+            # Get 3D model URL
             ship_model_url = get_ship_3d_model_path_from_page(spu)
             print(f"Found ship model path for {ship_name}: {ship_model_url}")
 
-            # Download file from path
+            # Download file from URL
             print(f"Attempting to download model file for {ship_name} from {ship_model_url}")
             r = requests.get(ship_model_url)
-            with open(os.path.join(tmp_dir, f"{ship_name}.ctm"), 'wb') as f:
+            ctm_fn = os.path.join(tmp_dir, f"{ship_name}.ctm")
+            with open(ctm_fn, 'wb') as f:
                 f.write(r.content)
 
-            print()
+            # Convert file from CTM to STL (or OBJ and others)
+            mesh_set = pymeshlab.MeshSet()
+            mesh_set.load_new_mesh(ctm_fn)
+            # TODO: can do all sorts of mesh operations with pymeshlab if desired or needed!
+            stl_fn = str(ctm_fn).split('.')[0] + '.stl'
+            mesh_set.save_current_mesh(stl_fn)
 
-    raise NotImplemented()
-
-    # TODO: convert from CTM to STL? (or OBJ?)
-
-    # TODO: store files on NAS at Z:/
-    storage_path = r"Z:\User Data\3d_printing\asset_extraction\SC\holoviewer"
+            # Export files
+            if outdir is not None and outdir != "":
+                shutil.move(src=stl_fn, dst=outdir)
 
     # TODO: get blender API in here and accessible
     bpy
@@ -209,7 +214,6 @@ def main():
 
     # TODO: build up a QT GUI for click and get type stuff
     PyQt5
-
     # TODO: date based directory for saving assets
     # TODO: temporary file storage?
     # TODO: support using pre-existing files?
