@@ -154,9 +154,7 @@ def get_ship_3d_model_path_from_page(url):
     return full_model_path
 
 
-def main():
-
-    outdir = r"Z:\User Data\3d_printing\asset_extraction\SC\holoviewer"
+def scraper(outdir, temp_dir):
 
     # Start scraping
     base_url = "https://robertsspaceindustries.com/"
@@ -180,7 +178,7 @@ def main():
         print(f"{spu}")
 
     # Go to each page and find the path to the CTM model file in the holoviewer
-    with tempfile.TemporaryDirectory(dir=r'C:\Users\kyle\Downloads') as tmp_dir:
+    with tempfile.TemporaryDirectory(dir=temp_dir) as tmp_dir:
         for spu in ship_page_urls:
             ship_name = '_'.join(spu.split('/')[-2:])
             print(f"Attempting to find 3D model download URL for {ship_name}")
@@ -207,10 +205,15 @@ def main():
             if outdir is not None and outdir != "":
                 shutil.move(src=stl_fn, dst=outdir)
 
-    # TODO: get blender API in here and accessible
-    bpy
+
+if __name__ == "__main__":
 
     # TODO: turn everything into a function
+
+    # TODO: write CLI
+
+    # TODO: get blender API in here and accessible
+    bpy
 
     # TODO: build up a QT GUI for click and get type stuff
     PyQt5
@@ -218,6 +221,7 @@ def main():
     # TODO: temporary file storage?
     # TODO: support using pre-existing files?
 
-
-if __name__ == "__main__":
-    main()
+    scraper(
+        outdir=r"Z:\User Data\3d_printing\asset_extraction\SC\holoviewer",
+        temp_dir=r'C:\Users\kyle\Downloads',
+    )
