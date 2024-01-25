@@ -69,6 +69,6 @@ def main(input_file, output_file):
     bpy.ops.export_mesh.stl(filepath=out_file)
 
 if __name__ == "__main__":
-    test_file = "M:\\3d_printing\\star_citizen\\downloads\\400i_400i.stl"
-    out_file = "M:\\3d_printing\\star_citizen\\edited\\400i_400i.stl"
+    test_file = "M:\\3d_printing\\star_citizen\\downloads\\drake-cutlass_Cutlass-Black.stl"
+    out_file = "M:\\3d_printing\\star_citizen\\edited\\drake-cutlass_Cutlass-Black.stl"
     main(test_file, out_file)
