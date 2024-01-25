@@ -126,7 +126,6 @@ def get_ship_3d_model_path_from_page(url):
 
     # Search through scripts for reference to *.CTM file
     model_path = ''
-    found_model_path = False
     scripts = soup.find_all("script", {'type': 'text/javascript'})
     for script in scripts:
         if len(script) > 0:
@@ -143,29 +142,39 @@ def get_ship_3d_model_path_from_page(url):
                     print(f"Matches: {matches}")
                     model_path = ''.join(matches[0].split(":")[1:]).strip().strip('\'')
                     print(f"Model path: {model_path}")
-                    found_model_path = True
                     break
                 elif len(matches) == 0:
                     continue
                 else:  # len(matches) > 0
                     raise RuntimeError(
                         f"Found multiple 3D model file references in HTML source: {matches}.")
-
-    # Raise hell if this loop completes, but we didn't get a good model file
-    if not found_model_path or model_path == '':
+    else:
         return None
 
-    # Sometimes URL is full, but sometimes it is not
-    if "https://" not in model_path:
-        full_model_path = urljoin('https://robertsspaceindustries.com', model_path)
-    else:
-        full_model_path = model_path
+    # Raise hell if this loop completes, but we didn't get a good model file
+    if model_path == '':
+        return None
 
-    return full_model_path
+    # Sometimes URL is incomplete.
+    model_path = model_path.replace("https//media", "https://media")
+    if model_path.startswith("/media/"):
+        model_path = urljoin('https://robertsspaceindustries.com', model_path)
+    
+    # warn about unhandled cases.
+    valid_path_starts = {
+        "https://robertsspaceindustries.com/media/",
+        "https://media.robertsspaceindustries.com/"
+    }
+    for start in valid_path_starts:
+        if model_path.startswith(start):
+            break
+    else:
+        raise RuntimeError(f"Unhandled URL format that needs manual intervention: {model_path}")        
+
+    return model_path
 
 
 def scraper(outdir, temp_dir, max_retries: int = 5, retry_delay_sec: float = 3.0):
-
     # TODO: possible to execute fetch and model processing in parallel for speed improvements?
 
     # Start scraping
@@ -239,8 +248,8 @@ def scraper(outdir, temp_dir, max_retries: int = 5, retry_delay_sec: float = 3.0
 
             # Export files
             if outdir is not None and outdir != "":
-                shutil.move(src=stl_fn, dst=os.path.join(outdir, stl_fn))
-
+                dest = os.path.join(outdir, os.path.basename(stl_fn))
+                shutil.move(src=stl_fn, dst=dest)
 
 
 if __name__ == "__main__":
