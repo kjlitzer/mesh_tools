@@ -21,7 +21,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import PyQt5
 import pymeshlab
-import bpy
+# import bpy
 
 # Selenium chrome options
 CHROME_PATH = '/usr/bin/google-chrome'
@@ -107,11 +107,11 @@ def open_page_in_browser_locally(page):
 
 def get_ship_3d_model_path_from_page(url):
     """
-    Searches through ship page HTML content to find occurences of javascript content that should contain a reference
+    Searches through ship page HTML content to find occurrences of javascript content that should contain a reference
         to the path that holoviewer uses to dynamically load the 3D model file for the ship in context.
 
     :param url: Ship page to search for 3D model file reference in.
-    :return: string containg the path for the ship model file
+    :return: string containing the path for the ship model file
     """
 
     page = requests.get(url)
@@ -119,6 +119,7 @@ def get_ship_3d_model_path_from_page(url):
 
     # Search through scripts for reference to *.CTM file
     model_path = ''
+    found_model_path = False
     scripts = soup.find_all("script", {'type': 'text/javascript'})
     for script in scripts:
         if len(script) > 0:
@@ -132,18 +133,22 @@ def get_ship_3d_model_path_from_page(url):
                 matches = pattern.findall(content)
 
                 if len(matches) == 1:
+                    print(f"Matches: {matches}")
                     model_path = ''.join(matches[0].split(":")[1:]).strip().strip('\'')
+                    print(f"Model path: {model_path}")
+                    found_model_path = True
                 elif len(matches) == 0:
-                    RuntimeError("Failed to find scripts content in HTML source when attempting to "
+                    raise RuntimeError("Failed to find scripts content in HTML source when attempting to "
                                  "locate 3D model file paths.")
                 else:  # len(matches) > 0
-                    RuntimeError(
+                    raise RuntimeError(
                         f"Found multiple 3D model file references in HTML source: {matches}.")
 
                 break
-        else:
-            RuntimeError(
-                "Failed to find scripts content in HTML source when attempting to locate 3D model file paths.")
+
+    # Raise hell if this loop completes, but we didn't get a good model file
+    if not found_model_path or model_path == '':
+        raise RuntimeError(f"Failed to find any reference to model file ")
 
     # Sometimes URL is full, but sometimes it is not
     if "https://" not in model_path:
@@ -154,14 +159,16 @@ def get_ship_3d_model_path_from_page(url):
     return full_model_path
 
 
-def scraper(outdir, temp_dir):
+def scraper(outdir, temp_dir, max_retries: int = 5, retry_delay_sec: float = 3.0):
+
+    # TODO: possible to execute fetch and model processing in parallel for speed improvements?
 
     # Start scraping
     base_url = "https://robertsspaceindustries.com/"
     pledge_ships_url = urljoin(base_url, 'pledge/ships/')
 
     # Load page, then scroll to get all dynamic content
-    soup = scroller(pledge_ships_url, scroll_pause_time_sec=1.0)
+    soup = scroller(pledge_ships_url, scroll_pause_time_sec=1.5)  # 1.0 was sometimes too slow, function needs update
 
     # Find ship links on this page, then iterate over them to get and extract data from each page
     search_results = soup.find(id='search-results')
@@ -180,6 +187,9 @@ def scraper(outdir, temp_dir):
     # Go to each page and find the path to the CTM model file in the holoviewer
     with tempfile.TemporaryDirectory(dir=temp_dir) as tmp_dir:
         for spu in ship_page_urls:
+
+            retries = 0
+
             ship_name = '_'.join(spu.split('/')[-2:])
             print(f"Attempting to find 3D model download URL for {ship_name}")
 
@@ -187,33 +197,64 @@ def scraper(outdir, temp_dir):
             ship_model_url = get_ship_3d_model_path_from_page(spu)
             print(f"Found ship model path for {ship_name}: {ship_model_url}")
 
-            # Download file from URL
-            print(f"Attempting to download model file for {ship_name} from {ship_model_url}")
-            r = requests.get(ship_model_url)
+            while retries < max_retries:
+
+                # Download file from URL
+                print(f"Attempting to download model file for {ship_name} from {ship_model_url}")
+                r = requests.get(ship_model_url)
+
+                if r.status_code != 200:
+                    print(f"Failed to downloaded ship model from {ship_model_url}, response code: {r.status_code}")
+                    # print(f"Response content: {r.content}")
+
+                    if retries >= max_retries:
+                        print(f"Retry limit exceeded. Skipping to next ship.")
+                        break
+                    else:
+                        print(f"Retry limit not exceeded ({retries}/{max_retries}), attempting again.")
+                        retries += 1
+                else:
+                    print(f"Successfully downloaded ship model")
+                    break  # exit while loop and continue this iteration of for
+
+            if retries >= max_retries:
+                print(f"Retry limit exceeded. Skipping to next ship. (2)")
+                continue
+
             ctm_fn = os.path.join(tmp_dir, f"{ship_name}.ctm")
             with open(ctm_fn, 'wb') as f:
                 f.write(r.content)
 
             # Convert file from CTM to STL (or OBJ and others)
             mesh_set = pymeshlab.MeshSet()
+            print(f"Attempting to import CTM into pymeshlab...")
             mesh_set.load_new_mesh(ctm_fn)
+            # TODO: why does this not error if input is invalid????
+            # TODO:     should raise a PyMeshLabException if format invalid or other error
+
+            print(f"CTM loading successful!")
             # TODO: can do all sorts of mesh operations with pymeshlab if desired or needed!
+
             stl_fn = str(ctm_fn).split('.')[0] + '.stl'
             mesh_set.save_current_mesh(stl_fn)
+            print(f"Exported mesh to STL format.")
 
             # Export files
             if outdir is not None and outdir != "":
+                # shutil.move(src=ctm_fn, dst=outdir)
                 shutil.move(src=stl_fn, dst=outdir)
 
 
 if __name__ == "__main__":
+
+    # TODO: add python logging functionality
 
     # TODO: turn everything into a function
 
     # TODO: write CLI
 
     # TODO: get blender API in here and accessible
-    bpy
+    # bpy
 
     # TODO: build up a QT GUI for click and get type stuff
     PyQt5
@@ -222,6 +263,29 @@ if __name__ == "__main__":
     # TODO: support using pre-existing files?
 
     scraper(
-        outdir=r"Z:\User Data\3d_printing\asset_extraction\SC\holoviewer",
+        outdir=r"Z:\3d_printing\asset_extraction\SC\holoviewer",
         temp_dir=r'C:\Users\kyle\Downloads',
     )
+
+    # ~~~ GUI functions ~~~ #
+
+    # Get list of available ships from RSI page
+    # TODO
+
+    # Allow for sub-selection of ship names in list
+    # TODO
+
+    # Define recipe for model postprocessing
+    # TODO: basic recipe should be rescale
+
+    # Retrieve models for each ship in down-selected list
+    # TODO
+
+    # Save raw models (as STL; if desired)
+    # TODO: move from temporary storage location to final resting place
+
+    # Set desired scale
+    # TODO: what is the default units of ship model? (probably meters)
+
+    # Save processed models (as STL)
+    # TODO: move from temporary storage location to final resting place

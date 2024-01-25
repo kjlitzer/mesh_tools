@@ -5,7 +5,8 @@
 numpy
 scipy
 beautifulsoup4
-bpy
+html5lib
+bpy  # requires python 3.10
 pyqt5
 python-openctm
 requests
