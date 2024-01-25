@@ -16,13 +16,17 @@ class ScraperSettings(Settings):
     tempdir = r"C:\temp\download\directory"
     scroll_pause_time_sec = 1.5
     max_retries = 3
-    
+
+class BlenderSettings(Settings):
+    path_to_blender = "C:\path\to\blender.exe"
+
 class MeshSettings(Settings):
     pass
 
 class Config(Settings):
     scrape = ScraperSettings()
     mesh = MeshSettings()
+    blender = BlenderSettings()
 
 
 # Verify all settings match the config_example and nothing is missing.
