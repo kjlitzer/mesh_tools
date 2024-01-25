@@ -5,7 +5,6 @@ Manual Scraping instructions:
 https://www.reddit.com/r/starcitizen/comments/ab0gja/how_to_download_3d_print_holo_viewer_models/
 """
 
-# TODO: get a requirements.txt going
 import os
 import shutil
 import time
@@ -22,6 +21,8 @@ from selenium.webdriver.chrome.options import Options
 import PyQt5
 import pymeshlab
 import bpy
+
+import config
 
 # Selenium chrome options
 CHROME_PATH = '/usr/bin/google-chrome'
@@ -222,6 +223,6 @@ if __name__ == "__main__":
     # TODO: support using pre-existing files?
 
     scraper(
-        outdir=r"Z:\User Data\3d_printing\asset_extraction\SC\holoviewer",
-        temp_dir=r'C:\Users\kyle\Downloads',
+        outdir=config.scraper.outdir,
+        temp_dir=config.scraper.temp_dir,
     )
