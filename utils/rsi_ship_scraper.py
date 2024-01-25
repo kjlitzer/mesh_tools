@@ -53,6 +53,8 @@ def scroller(url, scroll_pause_time_sec=1.0):
     try:
         driver.get(url)
 
+        time.sleep(10.0)
+
         last_height = driver.execute_script("return document.body.scrollHeight")
 
         while True:
