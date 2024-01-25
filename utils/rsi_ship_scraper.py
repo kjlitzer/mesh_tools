@@ -50,10 +50,13 @@ def scroller(url, scroll_pause_time_sec=1.0):
 
     try:
         driver.get(url)
+        time.sleep(scroll_pause_time_sec)
 
         last_height = driver.execute_script("return document.body.scrollHeight")
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
         while True:
+            driver.execute_script("window.scrollTo(0, 0);")
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
             # TODO: change this from a crude sleep to either an implicit wait (better, but not ideal)
@@ -139,18 +142,16 @@ def get_ship_3d_model_path_from_page(url):
                     model_path = ''.join(matches[0].split(":")[1:]).strip().strip('\'')
                     print(f"Model path: {model_path}")
                     found_model_path = True
+                    break
                 elif len(matches) == 0:
-                    raise RuntimeError("Failed to find scripts content in HTML source when attempting to "
-                                 "locate 3D model file paths.")
+                    continue
                 else:  # len(matches) > 0
                     raise RuntimeError(
                         f"Found multiple 3D model file references in HTML source: {matches}.")
 
-                break
-
     # Raise hell if this loop completes, but we didn't get a good model file
     if not found_model_path or model_path == '':
-        raise RuntimeError(f"Failed to find any reference to model file ")
+        return None
 
     # Sometimes URL is full, but sometimes it is not
     if "https://" not in model_path:
@@ -170,7 +171,7 @@ def scraper(outdir, temp_dir, max_retries: int = 5, retry_delay_sec: float = 3.0
     pledge_ships_url = urljoin(base_url, 'pledge/ships/')
 
     # Load page, then scroll to get all dynamic content
-    soup = scroller(pledge_ships_url, scroll_pause_time_sec=1.5)  # 1.0 was sometimes too slow, function needs update
+    soup = scroller(pledge_ships_url, scroll_pause_time_sec=config.scrape.scroll_pause_time_sec)  # 1.0 was sometimes too slow, function needs update
 
     # Find ship links on this page, then iterate over them to get and extract data from each page
     search_results = soup.find(id='search-results')
@@ -190,16 +191,17 @@ def scraper(outdir, temp_dir, max_retries: int = 5, retry_delay_sec: float = 3.0
     with tempfile.TemporaryDirectory(dir=temp_dir) as tmp_dir:
         for spu in ship_page_urls:
 
-            retries = 0
-
             ship_name = '_'.join(spu.split('/')[-2:])
             print(f"Attempting to find 3D model download URL for {ship_name}")
 
             # Get 3D model URL
             ship_model_url = get_ship_3d_model_path_from_page(spu)
+            if ship_model_url is None:
+                print(f"No model path found for {ship_name}.")
+                continue
             print(f"Found ship model path for {ship_name}: {ship_model_url}")
 
-            while retries < max_retries:
+            for retries in range(max_retries):
 
                 # Download file from URL
                 print(f"Attempting to download model file for {ship_name} from {ship_model_url}")
@@ -207,20 +209,12 @@ def scraper(outdir, temp_dir, max_retries: int = 5, retry_delay_sec: float = 3.0
 
                 if r.status_code != 200:
                     print(f"Failed to downloaded ship model from {ship_model_url}, response code: {r.status_code}")
-                    # print(f"Response content: {r.content}")
-
-                    if retries >= max_retries:
-                        print(f"Retry limit exceeded. Skipping to next ship.")
-                        break
-                    else:
-                        print(f"Retry limit not exceeded ({retries}/{max_retries}), attempting again.")
-                        retries += 1
+                    print(f"Retry limit not exceeded ({retries}/{max_retries}), attempting again.")
                 else:
                     print(f"Successfully downloaded ship model")
                     break  # exit while loop and continue this iteration of for
-
-            if retries >= max_retries:
-                print(f"Retry limit exceeded. Skipping to next ship. (2)")
+            else:
+                print(f"Retry limit exceeded ({max_retries}). Skipping to next ship.")
                 continue
 
             ctm_fn = os.path.join(tmp_dir, f"{ship_name}.ctm")
@@ -267,6 +261,7 @@ if __name__ == "__main__":
     scraper(
         outdir=config.scrape.outdir,
         temp_dir=config.scrape.tempdir,
+        max_retries=config.scrape.max_retries
     )
 
     # ~~~ GUI functions ~~~ #

@@ -14,7 +14,9 @@ class Settings:
 class ScraperSettings(Settings):
     outdir = r"C:\path\to\scraper\storage"
     tempdir = r"C:\temp\download\directory"
-
+    scroll_pause_time_sec = 1.5
+    max_retries = 3
+    
 class MeshSettings(Settings):
     pass
 
