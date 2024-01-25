@@ -13,16 +13,19 @@ import datetime as dt
 import webbrowser
 from urllib.parse import urljoin
 import re
+import sys
 
 import requests
 from bs4 import BeautifulSoup
+import bs4.builder._html5lib
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-import PyQt5
+# import PyQt5
 import pymeshlab
-import bpy
+# import bpy
 
-import config
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from config import Config as config
 
 # Selenium chrome options
 CHROME_PATH = '/usr/bin/google-chrome'
@@ -214,15 +217,15 @@ if __name__ == "__main__":
     # TODO: write CLI
 
     # TODO: get blender API in here and accessible
-    bpy
+    # bpy
 
     # TODO: build up a QT GUI for click and get type stuff
-    PyQt5
+    # PyQt5
     # TODO: date based directory for saving assets
     # TODO: temporary file storage?
     # TODO: support using pre-existing files?
 
     scraper(
-        outdir=config.scraper.outdir,
-        temp_dir=config.scraper.temp_dir,
+        outdir=config.scrape.outdir,
+        temp_dir=config.scrape.tempdir,
     )

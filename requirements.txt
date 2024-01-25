@@ -4,6 +4,7 @@
 
 numpy
 scipy
+html5lib
 beautifulsoup4
 bpy
 pyqt5
