@@ -9,7 +9,6 @@ import os
 import shutil
 import time
 import tempfile
-import datetime as dt
 import webbrowser
 from urllib.parse import urljoin
 import re
@@ -17,7 +16,6 @@ import sys
 
 import requests
 from bs4 import BeautifulSoup
-import bs4.builder._html5lib
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 # import PyQt5
@@ -247,8 +245,8 @@ def scraper(outdir, temp_dir, max_retries: int = 5, retry_delay_sec: float = 3.0
 
             # Export files
             if outdir is not None and outdir != "":
-                # shutil.move(src=ctm_fn, dst=outdir)
-                shutil.move(src=stl_fn, dst=outdir)
+                shutil.move(src=stl_fn, dst=os.path.join(outdir, stl_fn))
+
 
 
 if __name__ == "__main__":
